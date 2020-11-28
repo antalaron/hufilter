@@ -2,8 +2,15 @@
 
 mkdir ./tmp
 
-VERSION=`date -u "+%Y%m%d%H%M"`;
-LAST_MODIFIED=`LC_ALL=en_GB.UTF-8 date -u "+%d %b %Y %H:%M %Z"`;
+if [ "$1" = "ci" ]; then
+  DATE_VERSION=`cat .date`
+else
+  DATE_VERSION="`date "+%s"`"
+  echo -n ${DATE_VERSION} > .date
+fi
+
+VERSION=`date --date="@${DATE_VERSION}" -u "+%Y%m%d%H%M"`
+LAST_MODIFIED=`LC_ALL=en_GB.UTF-8 date --date="@${DATE_VERSION}" -u "+%d %b %Y %H:%M %Z"`
 
 checksum_filter() {
   grep -v '! Checksum: ' $1 | grep -v '^$' > $1.chk
@@ -51,14 +58,33 @@ cat "./dev/adguard-specific.txt" >> "$TMP_ADGUARD";
 echo "AdGuard list builded"
 
 # Move out builded filters.
-rm -f hufilter.txt
-cp $TMP_ABP hufilter.txt
-rm -f hufilter-abp.txt
-cp $TMP_ABP hufilter-abp.txt
-rm -f hufilter-ublock.txt
-cp $TMP_UBLOCK hufilter-ublock.txt
-rm -f hufilter-adguard.txt
-cp $TMP_ADGUARD hufilter-adguard.txt
+if [ "$1" = "ci" ]; then
+  if ! diff $TMP_ABP hufilter.txt; then
+    echo hufilter.txt failed
+    exit 1
+  fi
+  if ! diff $TMP_ABP hufilter-abp.txt; then
+    echo hufilter-abp.txt failed
+    exit 1
+  fi
+  if ! diff $TMP_UBLOCK hufilter-ublock.txt; then
+    echo hufilter-ublock.txt failed
+    exit 1
+  fi
+  if ! diff $TMP_ADGUARD hufilter-adguard.txt; then
+    echo hufilter-adguard.txt failed
+    exit 1
+  fi
+else
+  rm -f hufilter.txt
+  cp $TMP_ABP hufilter.txt
+  rm -f hufilter-abp.txt
+  cp $TMP_ABP hufilter-abp.txt
+  rm -f hufilter-ublock.txt
+  cp $TMP_UBLOCK hufilter-ublock.txt
+  rm -f hufilter-adguard.txt
+  cp $TMP_ADGUARD hufilter-adguard.txt
+fi
 
 # Update DNS list (if it is necessary)
 DNS_CURRENT=$(sort -u './hufilter-dns.txt' | grep -v '^!' | grep -v '^[[:space:]]*$')
